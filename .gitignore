@@ -1,0 +1,13 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Runtime sessions and temporary state
+backend/sessions/
+
+# Environment variables
+.env
+.venv/
+env/
+venv/
