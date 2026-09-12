@@ -22,11 +22,12 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 import store as session_store
 from candidates import select_candidates
@@ -42,6 +43,7 @@ from element_ranking import element_hit_at_k, rank_all_files_elements
 from element_reasoning import generate_all_element_reasoning
 from file_ranking import hit_at_k, rank_files
 from file_reasoning import generate_file_reasoning
+from github_fetch import get_repo_source
 from structure import (
     create_structure,
     filter_none_python,
@@ -118,9 +120,25 @@ def _require_stage(session: dict[str, Any], field: str, stage_name: str) -> None
 # ---------------------------------------------------------------------------
 
 class CreateProjectRequest(BaseModel):
-    repo_root: str = Field(
-        ...,
+    repo_root: str | None = Field(
+        default=None,
         description="Absolute path on the server to the repo/ folder to analyse.",
+    )
+    repo_url: str | None = Field(
+        default=None,
+        description="Public GitHub repository URL or owner/repo shorthand.",
+    )
+    ref: str | None = Field(
+        default=None,
+        description="Optional GitHub branch, tag, or commit SHA.",
+    )
+    subdir: str | None = Field(
+        default="",
+        description="Optional path inside a GitHub repository to use as its source root.",
+    )
+    github_token: str | None = Field(
+        default=None,
+        description="Optional token for this GitHub request; overrides GITHUB_TOKEN.",
     )
     problem_statement: str = Field(
         ...,
@@ -150,6 +168,17 @@ class CreateProjectRequest(BaseModel):
         default=DEFAULT_BACKEND,
         description="LLM backend: 'anthropic', 'openai', or 'gemini'.",
     )
+
+    @model_validator(mode="after")
+    def check_exactly_one_source(self) -> "CreateProjectRequest":
+        has_root = bool(self.repo_root)
+        has_url = bool(self.repo_url)
+        if has_root == has_url:
+            raise ValueError(
+                "Provide exactly one of `repo_root` (a local path) or `repo_url` "
+                "(a GitHub URL), not both or neither."
+            )
+        return self
 
 
 class CreateProjectResponse(BaseModel):
@@ -218,14 +247,6 @@ def create_project(req: CreateProjectRequest) -> CreateProjectResponse:
 
     Returns the project_id plus a tree preview and the Python file count.
     """
-    # Validate repo_root
-    repo_root = os.path.abspath(req.repo_root)
-    if not os.path.isdir(repo_root):
-        raise HTTPException(
-            status_code=422,
-            detail=f"repo_root is not a valid directory: {repo_root!r}",
-        )
-
     if req.backend not in ("anthropic", "openai", "gemini"):
         raise HTTPException(
             status_code=422,
@@ -238,33 +259,62 @@ def create_project(req: CreateProjectRequest) -> CreateProjectResponse:
             detail="problem_statement must be non-empty.",
         )
 
+    github_meta: dict[str, str] | None = None
+    if req.repo_url:
+        try:
+            github_meta = get_repo_source(
+                repo_url=req.repo_url,
+                ref=req.ref,
+                subdir=req.subdir,
+                github_token=req.github_token,
+            )
+        except Exception as exc:
+            logger.info("GitHub repository fetch failed for %r: %s", req.repo_url, exc)
+            raise HTTPException(status_code=400, detail=f"Failed to fetch GitHub repo: {exc}")
+        repo_root = github_meta["effective_root"]
+    else:
+        # The model validator guarantees this is non-None for local projects.
+        repo_root = os.path.abspath(req.repo_root or "")
+        if not os.path.isdir(repo_root):
+            raise HTTPException(
+                status_code=400,
+                detail=f"repo_root does not exist or is not a directory: {repo_root!r}",
+            )
+
     logger.info("POST /projects — repo_root=%s", repo_root)
 
-    # §3.2 — Walk and parse
-    structure = create_structure(repo_root)
+    try:
+        # §3.2 — Walk and parse
+        structure = create_structure(repo_root)
 
-    # §3.3 — Apply both filters (in order matching localize.py)
-    filter_none_python(structure)
-    filter_out_test_files(structure)
+        # §3.3 — Apply both filters (in order matching localize.py)
+        filter_none_python(structure)
+        filter_out_test_files(structure)
 
-    # §3.4 — Flatten
-    files_flat, classes_flat, functions_flat = (
-        get_full_file_paths_and_classes_and_functions(structure)
-    )
-
-    # Count only .py files (tuples in files_flat)
-    num_python_files = sum(1 for f in files_flat if isinstance(f, tuple))
-
-    if num_python_files == 0:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "No Python (.py) files found in the repository after filtering. "
-                "Check that repo_root points to the correct directory."
-            ),
+        # §3.4 — Flatten
+        files_flat, classes_flat, functions_flat = (
+            get_full_file_paths_and_classes_and_functions(structure)
         )
 
-    tree_preview = show_project_structure(structure).strip()
+        # Count only .py files (tuples in files_flat)
+        num_python_files = sum(1 for f in files_flat if isinstance(f, tuple))
+
+        if num_python_files == 0:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "No Python (.py) files found in the repository after filtering. "
+                    "Check that repo_root points to the correct directory."
+                ),
+            )
+
+        tree_preview = show_project_structure(structure).strip()
+    except Exception:
+        # A failed Stage 0 never creates a session, so it must not leave a
+        # temporary GitHub checkout behind.
+        if github_meta:
+            shutil.rmtree(github_meta["download_dir"], ignore_errors=True)
+        raise
 
     # Create session
     project_id = session_store.create_session(
@@ -274,6 +324,13 @@ def create_project(req: CreateProjectRequest) -> CreateProjectResponse:
         backend=req.backend,
         ground_truth_file=req.ground_truth_file,
         ground_truth_elements=req.ground_truth_elements,
+        source_type="github" if github_meta else "local",
+        repo_url=req.repo_url if github_meta else None,
+        owner=github_meta["owner"] if github_meta else None,
+        repo_name=github_meta["repo"] if github_meta else None,
+        resolved_ref=github_meta["resolved_ref"] if github_meta else None,
+        resolved_commit_sha=github_meta["resolved_commit_sha"] if github_meta else None,
+        download_dir=github_meta["download_dir"] if github_meta else None,
     )
     session_store.update_session(
         project_id,
@@ -575,3 +632,14 @@ def get_project(project_id: str) -> dict[str, Any]:
     session = _require_session(project_id)
     # Return a copy so callers can't mutate the store through this dict.
     return session_store.get_session_copy(project_id)
+
+
+@app.delete("/projects/{project_id}")
+def delete_project(project_id: str) -> dict[str, str]:
+    """Delete a project session and clean up its GitHub download, if any."""
+    session = _require_session(project_id)
+    download_dir = session.get("download_dir")
+    if download_dir and os.path.isdir(download_dir):
+        shutil.rmtree(download_dir, ignore_errors=True)
+    session_store.delete_session(project_id)
+    return {"deleted": project_id}

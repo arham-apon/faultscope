@@ -83,6 +83,13 @@ def create_session(
     backend: str,
     ground_truth_file: str | None = None,
     ground_truth_elements: list[str] | None = None,
+    source_type: str | None = None,
+    repo_url: str | None = None,
+    owner: str | None = None,
+    repo_name: str | None = None,
+    resolved_ref: str | None = None,
+    resolved_commit_sha: str | None = None,
+    download_dir: str | None = None,
 ) -> str:
     """
     Create a new project session and return its project_id.
@@ -98,6 +105,16 @@ def create_session(
         "ground_truth_elements": ground_truth_elements,
         "model": model,
         "backend": backend,
+        # Source metadata.  Local projects deliberately retain None values for
+        # GitHub-specific fields so their existing behavior and session shape
+        # remain compatible.
+        "source_type": source_type,
+        "repo_url": repo_url,
+        "owner": owner,
+        "repo_name": repo_name,
+        "resolved_ref": resolved_ref,
+        "resolved_commit_sha": resolved_commit_sha,
+        "download_dir": download_dir,
         # Pipeline state — all None until the corresponding stage runs.
         "structure": None,
         "files_flat": None,
@@ -155,3 +172,16 @@ def get_session_copy(project_id: str) -> dict[str, Any] | None:
 def list_sessions() -> list[str]:
     """Return all known project_ids (in-memory only)."""
     return list(_store.keys())
+
+
+def delete_session(project_id: str) -> None:
+    """Remove a session from memory and its optional persisted JSON file."""
+    _store.pop(project_id, None)
+    if not PERSIST_SESSIONS:
+        return
+    try:
+        path = _sessions_path(project_id)
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception as exc:
+        logger.warning("Could not delete persisted session %s: %s", project_id, exc)

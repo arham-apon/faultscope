@@ -41,7 +41,7 @@ DEFAULT_TOP_K_FILES: int = 3        # Stage 4-6: how many top files to extract e
 # ---------------------------------------------------------------------------
 # LLM defaults — Gemini free-tier
 # ---------------------------------------------------------------------------
-# Set GOOGLE_API_KEY in your environment and you're good to go.
+# Set GOOGLE_API_KEY in your environment or backend/.env and you're good to go.
 # Recommended free-tier Gemini models (pick any):
 #   "gemini-2.0-flash"        — fast, capable, generous free quota  (DEFAULT)
 #   "gemini-2.0-flash-lite"   — fastest, lowest cost
@@ -52,3 +52,12 @@ DEFAULT_MODEL: str = "gemini-3.6-flash"
 
 # Sessions persistence directory (relative to backend/ directory at runtime)
 SESSIONS_DIR: str = "sessions"
+
+# ---------------------------------------------------------------------------
+# GitHub URL support
+# ---------------------------------------------------------------------------
+# Maximum compressed archive size accepted from GitHub.  This keeps a public
+# URL request from unexpectedly consuming excessive memory in this demo app.
+MAX_REPO_DOWNLOAD_BYTES: int = 150_000_000
+DOWNLOAD_TIMEOUT_SECONDS: int = 60
+GITHUB_API_BASE: str = "https://api.github.com"
