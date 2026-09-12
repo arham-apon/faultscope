@@ -312,7 +312,13 @@ def correct_file_paths(model_found_files: list[str], files: list) -> list[str]:
     """
     found_files: list[str] = []
     if model_found_files:
-        real_paths = {f[0] if isinstance(f, tuple) else f for f in files}
+        # Fresh structures contain ``(path, lines)`` tuples.  Persisted
+        # sessions are JSON, however, so those tuples are restored as lists
+        # after a server restart.  Both forms describe the same file entry.
+        real_paths = {
+            f[0] if isinstance(f, (tuple, list)) else f
+            for f in files
+        }
         for model_file in model_found_files:
             if model_file in real_paths:
                 found_files.append(model_file)

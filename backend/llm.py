@@ -10,6 +10,14 @@ Supports: anthropic | openai | gemini
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load credentials from backend/.env when present.  Real secret values remain
+# local because .env is ignored by Git; process environment variables still
+# take precedence over this file.
+load_dotenv(Path(__file__).with_name(".env"))
 
 
 def call_llm(
