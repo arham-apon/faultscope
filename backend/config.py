@@ -48,7 +48,7 @@ DEFAULT_TOP_K_FILES: int = 3        # Stage 4-6: how many top files to extract e
 #   "gemini-1.5-flash"        — stable, well-tested
 #   "gemini-2.5-pro"          — highest quality, may hit rate limits on free tier
 DEFAULT_BACKEND: str = "gemini"
-DEFAULT_MODEL: str = "gemini-2.0-flash"
+DEFAULT_MODEL: str = "gemini-3.6-flash"
 
 # Sessions persistence directory (relative to backend/ directory at runtime)
 SESSIONS_DIR: str = "sessions"
