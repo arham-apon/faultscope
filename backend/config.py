@@ -42,11 +42,25 @@ DEFAULT_TOP_K_FILES: int = 3        # Stage 4-6: how many top files to extract e
 # LLM defaults — Gemini free-tier
 # ---------------------------------------------------------------------------
 # Set GOOGLE_API_KEY in your environment or backend/.env and you're good to go.
-# Recommended free-tier Gemini models (pick any):
-#   "gemini-2.0-flash"        — fast, capable, generous free quota  (DEFAULT)
-#   "gemini-2.0-flash-lite"   — fastest, lowest cost
-#   "gemini-1.5-flash"        — stable, well-tested
-#   "gemini-2.5-pro"          — highest quality, may hit rate limits on free tier
+#
+# IMPORTANT — free-tier daily quota. Each model has its own allowance, and the
+# pinned versions are stingy: "gemini-3.6-flash" allows 20 requests PER DAY
+# (quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier). A single full
+# pipeline run spends far more than that — 3-5 file-reasoning calls, 1 ranking
+# call, then one call per extracted element — so a pinned model will exhaust a
+# day's quota partway through one run and the rest land as "Error during
+# reasoning" strings.
+#
+# Verified available on this key:
+#   "gemini-flash-latest"   — rolling alias, its own quota bucket  (recommended)
+#   "gemini-3.6-flash"      — pinned, 20 requests/day on free tier (CURRENT)
+#   "gemini-3.7-flash", "gemini-3.8-flash", "gemini-3.5-flash" — other pinned versions
+#   "gemini-flash-lite-latest" — cheapest, largest allowance
+#
+# Pin a version for reproducible research results; use the rolling alias when
+# you need a run to actually finish. List what your key can reach with:
+#   python -c "from google import genai; import os; \
+#     print([m.name for m in genai.Client(api_key=os.environ['GOOGLE_API_KEY']).models.list()])"
 DEFAULT_BACKEND: str = "gemini"
 DEFAULT_MODEL: str = "gemini-3.6-flash"
 
@@ -61,3 +75,23 @@ SESSIONS_DIR: str = "sessions"
 MAX_REPO_DOWNLOAD_BYTES: int = 150_000_000
 DOWNLOAD_TIMEOUT_SECONDS: int = 60
 GITHUB_API_BASE: str = "https://api.github.com"
+
+# ---------------------------------------------------------------------------
+# Static file upload support
+# ---------------------------------------------------------------------------
+# Browser-uploaded candidate files are staged into a temp directory and used
+# as the candidate set directly, bypassing LLM candidate selection (§4).
+MAX_UPLOAD_FILES: int = 50
+MAX_UPLOAD_TOTAL_BYTES: int = 20_000_000
+
+# ---------------------------------------------------------------------------
+# LLM transient-failure retry
+# ---------------------------------------------------------------------------
+# Free-tier Gemini enforces a requests-per-minute quota, and element-level
+# reasoning issues one call per element — so a burst reliably trips it. Without
+# a retry, those calls land in the pipeline as "Error during reasoning: 429"
+# strings and quietly degrade the ranking they feed. Retries are bounded and
+# apply only to rate-limit / transient-server errors, never to bad requests.
+LLM_MAX_RETRIES: int = 4
+LLM_RETRY_BASE_SECONDS: float = 8.0
+LLM_RETRY_MAX_SECONDS: float = 60.0
