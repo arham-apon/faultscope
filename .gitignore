@@ -11,3 +11,6 @@ backend/sessions/
 .venv/
 env/
 venv/
+
+# Editor/agent tooling (local dev only)
+.claude/

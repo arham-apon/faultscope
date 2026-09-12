@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-canvas text-primary font-sans antialiased;
+  }
+
+  /* Inputs are unadorned by default: a single hairline underneath carries the
+     affordance. No boxes, no fills, no rounded corners. */
+  input,
+  textarea,
+  select {
+    @apply bg-transparent text-primary placeholder:text-muted;
+  }
+
+  ::selection {
+    @apply bg-accent-tint text-accent;
+  }
+
+  /* The scrollbar is part of the composition; keep it thin and neutral. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #E6E4DD transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    @apply bg-hairline;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .field-underline {
+    @apply w-full border-0 border-b border-hairline pb-2 pt-1 outline-none transition-colors duration-150
+      focus:border-accent;
+  }
+
+  .label-meta {
+    @apply block font-mono text-[11px] uppercase tracking-[0.14em] text-muted;
+  }
+
+  /* Oversized rank numerals in stages 04 and 06. */
+  .numeral {
+    @apply font-mono text-3xl font-medium tabular-nums tracking-tight;
+  }
+
+  .link-quiet {
+    @apply font-mono text-xs text-accent underline decoration-hairline underline-offset-4
+      transition-colors hover:decoration-accent;
+  }
+}
