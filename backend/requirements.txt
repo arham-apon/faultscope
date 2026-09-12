@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic
+anthropic
+openai
+google-genai
