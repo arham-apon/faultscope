@@ -49,7 +49,7 @@ function Workbench() {
         maxStageReached={maxStageReached}
         onSelectStage={goToStage}
         githubMeta={githubMeta}
-        engineLabel={engine ? engine.default_model : "engine unavailable"}
+        engineLabel={engine ? engine.default_model : "—"}
         busy={busy}
       />
 

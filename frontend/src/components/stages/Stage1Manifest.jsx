@@ -120,7 +120,7 @@ export default function Stage1Manifest() {
   const busy = loadingStage !== null;
   const engineLabel = engine
     ? `${engine.default_model} · ${engine.default_backend}`
-    : "engine unavailable";
+    : "—";
 
   const addFiles = (incoming) => {
     setLocalNotice("");
