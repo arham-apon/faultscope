@@ -30,7 +30,7 @@ MAX_REASONING_FILE_CHARS: int = 60_000
 
 # Thread-pool concurrency for parallel LLM calls (§5, §8)
 MAX_REASONING_WORKERS: int = 5   # file-level reasoning (§5)
-MAX_ELEMENT_WORKERS: int = 4     # element-level reasoning (§8)
+MAX_ELEMENT_WORKERS: int = 1     # element-level reasoning (§8)
 
 # ---------------------------------------------------------------------------
 # Pipeline stage defaults
@@ -62,7 +62,8 @@ DEFAULT_TOP_K_FILES: int = 3        # Stage 4-6: how many top files to extract e
 #   python -c "from google import genai; import os; \
 #     print([m.name for m in genai.Client(api_key=os.environ['GOOGLE_API_KEY']).models.list()])"
 DEFAULT_BACKEND: str = "gemini"
-DEFAULT_MODEL: str = "gemini-3.6-flash"
+# DEFAULT_MODEL: str = "gemini-3.6-flash"
+DEFAULT_MODEL: str = "gemini-3.5-flash-lite"
 
 # Sessions persistence directory (relative to backend/ directory at runtime)
 SESSIONS_DIR: str = "sessions"
