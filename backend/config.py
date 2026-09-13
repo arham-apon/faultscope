@@ -62,7 +62,6 @@ DEFAULT_TOP_K_FILES: int = 3        # Stage 4-6: how many top files to extract e
 #   python -c "from google import genai; import os; \
 #     print([m.name for m in genai.Client(api_key=os.environ['GOOGLE_API_KEY']).models.list()])"
 DEFAULT_BACKEND: str = "gemini"
-# DEFAULT_MODEL: str = "gemini-3.6-flash"
 DEFAULT_MODEL: str = "gemini-3.5-flash-lite"
 
 # Sessions persistence directory (relative to backend/ directory at runtime)
